@@ -1,0 +1,8 @@
+
+CREATE TABLE REQUEST(
+    requestID VARCHAR,
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    remoteAddr VARCHAR,
+    imageName VARCHAR,
+    imageTag VARCHAR
+)
