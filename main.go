@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/lib/pq"
 	"github.com/topicai/candy"
 )
 
@@ -35,10 +36,10 @@ func (r *Record) writeRecord(f string) error {
 	log.Printf("write record: %s to file: %s", string(b), f)
 	err = ioutil.WriteFile(f, b, 0644)
 	return err
-
 }
 
 func readBlock(rs io.ReadSeeker, seek int64, max int) ([]string, int64, error) {
+	log.Printf("start reading block: seek: %d, max: %d", seek, max)
 	res := []string{}
 	if _, err := rs.Seek(seek, 0); err != nil {
 		return res, seek, err
@@ -50,20 +51,21 @@ func readBlock(rs io.ReadSeeker, seek int64, max int) ([]string, int64, error) {
 		data, err := r.ReadBytes('\n')
 		ln++
 		pos += int64(len(data))
-		// ignore empty line
-		if len(data) == 0 {
-			continue
-		}
-		if err == nil || err == io.EOF {
+		if err == nil {
 			if len(data) > 0 && data[len(data)-1] == '\n' {
 				data = data[:len(data)-1]
 			}
+		} else if err == io.EOF {
+			log.Println("read the last of file, close read block.")
+			return res, pos, nil
 		} else {
 			return res, pos, err
 		}
-		res = append(res, string(data))
-		fmt.Printf("seek: %d, data: %s\n", seek, data)
-		if ln == max {
+		if len(data) != 0 {
+			res = append(res, string(data))
+		}
+		log.Printf("read log message: %s, pos: %d, ln: %d", data, pos, ln)
+		if ln >= max {
 			return res, pos, nil
 		}
 	}
@@ -73,8 +75,8 @@ func main() {
 	recordFile := flag.String("record-file", "./log.pos", "record file position")
 	containerName := flag.String("container-name", "registry", "container name to be monitor")
 	containerPath := flag.String("container-path", defaultContainerPath, "docker path")
-	dbConn := flag.String("dbconnect", "user:pass@localhost/paddle_stat?sslmode=disable", "the database connect string of Paddle Stat.")
-
+	dbConn := flag.String("dbconnect", "user:pass@localhost/registry?sslmode=disable", "the database connect string of Paddle Stat.")
+	blockSize := flag.Int("block-size", 5, "reading how many lines every time")
 	flag.Parse()
 	db, err := sql.Open("postgres", fmt.Sprintf("postgres://%s", *dbConn))
 	candy.Must(err)
@@ -87,7 +89,7 @@ func main() {
 	}
 
 	record := loadRecord(*recordFile)
-
+	defer record.writeRecord(*recordFile)
 	for {
 		name2id, err := fetchName2ID(*containerPath)
 		candy.Must(err)
@@ -102,7 +104,7 @@ func main() {
 				time.Sleep(10 * time.Second)
 				continue
 			}
-			block, seek, err := readBlock(fr, record.Seek, 2)
+			block, seek, err := readBlock(fr, record.Seek, *blockSize)
 			if err != nil {
 				log.Printf("read block faild, %s", err.Error())
 				continue
@@ -117,15 +119,22 @@ func main() {
 			}
 			// process every log message
 			for _, line := range block {
+				log.Println("process log: ", line)
 				message, err := ParseMessage(line)
 				if err != nil {
+					log.Println("pass invalied log message.")
 					continue
 				}
-				log.Println(message)
-				_, err = db.Exec("INSERT INTO Request(requestID, timestamp, remoteAddr, imageName,"+
-					"imageTag) VALUES($1, $2, $3, $4, $5)", message.RequestID, message.Timestamp,
+				log.Printf("insert message: %+v", message)
+				_, err = db.Exec(
+					"INSERT INTO request(requestID, timestamp, remoteAddr, imageName,"+
+						"imageTag) VALUES($1, $2, $3, $4, $5)"+
+						"ON CONFLICT (requestID) "+
+						"DO UPDATE SET timestamp=$2, remoteAddr=$3, imageName=$4, imageTag=$5",
+					message.RequestID, message.Timestamp,
 					message.RemoteAddr, message.ImageName, message.ImageTag)
 				candy.Must(err)
+				log.Println("insert message into postgresql successed!")
 			}
 		} else {
 			log.Printf("Can not find container id by name: %s, sleep 10 seconds...\n", *containerName)

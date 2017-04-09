@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"regexp"
 	"time"
@@ -21,9 +20,7 @@ type Message struct {
 func str2timestamp(datestr string) (int64, error) {
 	//	d := string(datestr[:len(datestr)-11]) + "Z"
 	t, err := time.Parse(time.RFC3339Nano, datestr)
-	fmt.Println(t.Local())
 	if err != nil {
-		fmt.Println(err.Error())
 		return -1, err
 	}
 	return t.Local().Unix(), nil
@@ -42,13 +39,13 @@ func ParseMessage(message string) (Message, error) {
 	if err != nil {
 		log.Printf("parse datestr failed: %s", t)
 	}
-	r, err := regexp.Compile("http.request.id=([a-zA-Z0-9-]+) http.request.method=GET http.request.remoteaddr=\"([0-9.:]+)\" http.request.uri=\"/v2/([a-zA-Z0-9]+)/manifests/([a-zA-Z0-9-.]+)\" ")
+	r, err := regexp.Compile("http.request.id=([a-zA-Z0-9-]+) http.request.method=GET http.request.remoteaddr=([0-9.:]+) http.request.uri=\"/v2/([a-zA-Z0-9]+)/manifests/([a-zA-Z0-9-.]+)\" ")
 	res := r.FindStringSubmatch(l)
-	fmt.Println(res)
 	if err != nil {
+		log.Print("parse log message failed.")
 		return m, err
 	}
-	if len(res) != 6 {
+	if len(res) != 5 {
 		return m, errors.New("parse log message failed:" + message)
 	}
 

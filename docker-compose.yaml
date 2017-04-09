@@ -1,0 +1,25 @@
+version: "2"
+services:
+  app:
+    image: yancey1989/registry-stat
+    container_name: registry-stat
+    volumes:
+      - /var/lib/docker/:/var/lib/docker
+    restart: always
+    env_file:
+      - app.env
+    depends_on:
+      - db
+    restart: always
+    cpu_shares: 200
+    mem_limit: 200M
+
+  db:
+    image: postgres:9
+    container_name: registry-stat-pg
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+    cpu_shares: 100
