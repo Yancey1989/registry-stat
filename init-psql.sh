@@ -8,7 +8,7 @@ EOSQL
 psql -v ON_ERROR_STOP=1 --username postgres <<-EOSQL
 	CREATE TABLE REQUEST(
 		requestID VARCHAR,
-    timestamp INTEGER,
+        timestamp TIMESTAMP,
 		remoteAddr VARCHAR(40),
 		imageName VARCHAR(128),
 		imageTag VARCHAR(128),

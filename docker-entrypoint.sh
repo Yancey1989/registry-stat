@@ -1,5 +1,5 @@
 #!/bin/bash
-./registry-stat \
+registry-stat \
   --container-name=$CONTAINER_NAME \
   --container-path=$CONTAINER_PATH \
   --record-file=$RECORD_FILE \

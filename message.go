@@ -13,17 +13,25 @@ type Message struct {
 	RequestID  string
 	ImageName  string
 	ImageTag   string
-	Timestamp  int64
+	Timestamp  string
 	RemoteAddr string
 }
 
-func str2timestamp(datestr string) (int64, error) {
+func str2timestamp(datestr string) (string, error) {
 	//	d := string(datestr[:len(datestr)-11]) + "Z"
+	//offset, _ := time.ParseDuration("+08.00h")
 	t, err := time.Parse(time.RFC3339Nano, datestr)
+	if err != nil {
+		return "", err
+	}
+	return t.Local().Format(time.RFC3339), nil
+	/**
+	fmt.Println(t.Format(time.RFC3339))
 	if err != nil {
 		return -1, err
 	}
 	return t.Local().Unix(), nil
+	**/
 }
 
 //ParseMessage parse log message to struct
